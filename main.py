@@ -178,7 +178,7 @@ async def connection():
 
 	keep_alive = True
 
-	for _ in range(quantityOfSockets):
+	while len(listOfSockets) < quantityOfSockets:
 		try:
 			s = socketInit()
 
