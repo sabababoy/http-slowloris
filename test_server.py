@@ -3,8 +3,6 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 You can test slowloris attack on this server.
 To check use 'telnet'
 """
-
-
 PORT_NUMBER = 80
 
 class myHandler(BaseHTTPRequestHandler):
@@ -22,6 +20,6 @@ try:
 	
 	server.serve_forever()
 
-except KeyboardInterrupt:
+except:
 	print '^C received, shutting down the web server'
 	server.socket.close()
