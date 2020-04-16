@@ -133,6 +133,7 @@ async def keeping_active():
 		for s in listOfSockets:
 			if listOfSockets.index(s) % 100:
 				await asyncio.sleep(0.01)
+
 			try:
 				s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
 			except socket.error:
@@ -175,7 +176,7 @@ async def connection():
 		try:
 			s = socketInit()
 
-			if len(listOfSockets) % 100 == 0:
+			if len(listOfSockets) % 50 == 0:
 				print(len(listOfSockets))
 				await asyncio.sleep(0.01)
 
