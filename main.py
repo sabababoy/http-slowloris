@@ -128,20 +128,26 @@ async def keeping_active():
 
 	while keep_alive:
 
+		i = 0
+
 		print('{} sockets on {}:{} Still alive..'.format(len(listOfSockets), ip, port))
 
 		for s in listOfSockets:
-			if listOfSockets.index(s) % 100:
+			if listOfSockets.index(s) % 100 == 0:
 				await asyncio.sleep(0.01)
 
 			try:
 				s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
 			except socket.error:
-				print('ADDITIONAL SOCKET')
+				i += 1
 				listOfSockets.remove(s)
-				socketInit()
-				listOfSockets.append(s)
 				continue
+				
+		for x in range(i):
+			print(x)
+			s = socketInit()
+			listOfSockets.append(s)
+				
 		
 		await asyncio.sleep(5)
 
