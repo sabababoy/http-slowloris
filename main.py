@@ -76,7 +76,7 @@ def socketInit(ip, port):
 	while True:
 		if ip:
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.settimeout(1)
+			s.settimeout(2)
 			s.connect((ip, port))
 			break
 
@@ -131,6 +131,7 @@ def keeping_active(quantityOfSockets, ip, port):
 
 def connection(ip, port, quantityOfSockets=1000):
 	
+	global listOfSockets
 	global thread_kill
 	thread_kill = False
 	thread = not thread_kill
@@ -157,18 +158,25 @@ def connection(ip, port, quantityOfSockets=1000):
 	thread_kill = True
 	time.sleep(0.1)
 
+	result = len(listOfSockets)
+
 	for s in listOfSockets:
 		s.close()
 		listOfSockets.remove(s)
 
-	return len(listOfSockets)
+	listOfSockets = []
+
+	return result
 
 	
 
 
 if __name__ == "__main__":
 
-	ip = sys.argv[1]
+	try:
+		ip = sys.argv[1]
+	except:
+		ip = input('IP: ')
 
 	maximum_sockets = 1000
 
